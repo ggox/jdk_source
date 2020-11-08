@@ -842,6 +842,7 @@ public class ArrayList<E> extends AbstractList<E>
 
     /**
      * An optimized version of AbstractList.Itr
+     * 内部类，非静态类，所以天然可以读取到实例的一些属性
      */
     private class Itr implements Iterator<E> {
         int cursor;       // index of next element to return
@@ -856,6 +857,7 @@ public class ArrayList<E> extends AbstractList<E>
 
         @SuppressWarnings("unchecked")
         public E next() {
+            // 校验是否被改动过 FastFail 思想，第一时间抛出异常
             checkForComodification();
             int i = cursor;
             if (i >= size)
