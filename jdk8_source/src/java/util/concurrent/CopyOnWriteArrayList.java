@@ -385,8 +385,7 @@ public class CopyOnWriteArrayList<E>
 
     @SuppressWarnings("unchecked")
     private E get(Object[] a, int index) {
-        // get 没有加锁保护
-        return (E) a[index];
+        return (E) a[index];// get 没有加锁保护
     }
 
     /**
@@ -433,17 +432,14 @@ public class CopyOnWriteArrayList<E>
      * @return {@code true} (as specified by {@link Collection#add})
      */
     public boolean add(E e) {
-        // 加锁保护了
-        final ReentrantLock lock = this.lock;
+        final ReentrantLock lock = this.lock;// 加锁保护了
         lock.lock();
         try {
             Object[] elements = getArray();
             int len = elements.length;
-            // 存在数组复制
-            Object[] newElements = Arrays.copyOf(elements, len + 1);
+            Object[] newElements = Arrays.copyOf(elements, len + 1);// 存在数组复制
             newElements[len] = e;
-            // 替换掉原先的数组
-            setArray(newElements);
+            setArray(newElements);// 替换掉原先的数组
             return true;
         } finally {
             lock.unlock();
@@ -1079,8 +1075,7 @@ public class CopyOnWriteArrayList<E>
      * @return an iterator over the elements in this list in proper sequence
      */
     public Iterator<E> iterator() {
-        // 把当前数组赋值到 COWIterator 中，所以新加的元素不会被迭代到，相当于一份快照数据
-        return new COWIterator<E>(getArray(), 0);
+        return new COWIterator<E>(getArray(), 0);// 把当前数组赋值到 COWIterator 中，所以新加的元素不会被迭代到，相当于一份快照数据
     }
 
     /**
@@ -1180,8 +1175,7 @@ public class CopyOnWriteArrayList<E>
          *         is not supported by this iterator.
          */
         public void remove() {
-            // 因为是拷贝了一份快照数组，所以 CopyOnWriteArrayList 迭代器不支持 remove() 操作
-            throw new UnsupportedOperationException();
+            throw new UnsupportedOperationException();// 因为是拷贝了一份快照数组，所以 CopyOnWriteArrayList 迭代器不支持 remove() 操作
         }
 
         /**

@@ -34,12 +34,11 @@
  */
 
 package java.util.concurrent.locks;
-import sun.misc.Unsafe;
-
+import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
+import sun.misc.Unsafe;
 
 /**
  * Provides a framework for implementing blocking locks and related
