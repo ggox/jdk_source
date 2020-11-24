@@ -364,12 +364,12 @@ public class FutureTask<V> implements RunnableFuture<V> {
     private void finishCompletion() {
         // assert state > COMPLETING;
         for (WaitNode q; (q = waiters) != null;) {
-            if (UNSAFE.compareAndSwapObject(this, waitersOffset, q, null)) {
+            if (UNSAFE.compareAndSwapObject(this, waitersOffset, q, null)) { // 通知等待的所有线程
                 for (;;) {
                     Thread t = q.thread;
                     if (t != null) {
                         q.thread = null;
-                        LockSupport.unpark(t);
+                        LockSupport.unpark(t); // 解除阻塞状态
                     }
                     WaitNode next = q.next;
                     if (next == null)
@@ -405,7 +405,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
             }
 
             int s = state;
-            if (s > COMPLETING) {
+            if (s > COMPLETING) { // 完成了 直接返回
                 if (q != null)
                     q.thread = null;
                 return s;
@@ -414,7 +414,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
                 Thread.yield();
             else if (q == null)
                 q = new WaitNode();
-            else if (!queued)
+            else if (!queued) // 入队操作
                 queued = UNSAFE.compareAndSwapObject(this, waitersOffset,
                                                      q.next = waiters, q);
             else if (timed) {
@@ -423,10 +423,10 @@ public class FutureTask<V> implements RunnableFuture<V> {
                     removeWaiter(q);
                     return state;
                 }
-                LockSupport.parkNanos(this, nanos);
+                LockSupport.parkNanos(this, nanos); // 阻塞当前线程
             }
             else
-                LockSupport.park(this);
+                LockSupport.park(this); // 阻塞当前线程
         }
     }
 
