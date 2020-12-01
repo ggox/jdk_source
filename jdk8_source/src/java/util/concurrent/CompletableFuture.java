@@ -1680,7 +1680,7 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
                     return true;
             }
             if (deadline != 0L &&
-                (nanos <= 0L || (nanos = deadline - System.nanoTime()) <= 0L)) {
+                (nanos <= 0L || (nanos = deadline - System.nanoTime()) <= 0L)) { // 到时间了
                 thread = null;
                 return true;
             }
@@ -1710,17 +1710,17 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
         while ((r = result) == null) {
             if (spins < 0)
                 spins = (Runtime.getRuntime().availableProcessors() > 1) ?
-                    1 << 8 : 0; // Use brief spin-wait on multiprocessors
+                    1 << 8 : 0; // Use brief spin-wait on multiprocessors 使用短暂的旋转等待
             else if (spins > 0) {
                 if (ThreadLocalRandom.nextSecondarySeed() >= 0)
                     --spins;
             }
             else if (q == null)
-                q = new Signaller(interruptible, 0L, 0L);
+                q = new Signaller(interruptible, 0L, 0L); // 初始化 q
             else if (!queued)
-                queued = tryPushStack(q);
-            else if (interruptible && q.interruptControl < 0) {
-                q.thread = null;
+                queued = tryPushStack(q); // 将 q 入栈
+            else if (interruptible && q.interruptControl < 0) { // q.interruptControl < 0: interrupted
+                q.thread = null; // thread == null 表示 Signaller 死亡； 允许中断且已经中断时，清理 stack 返回 null
                 cleanStack();
                 return null;
             }
