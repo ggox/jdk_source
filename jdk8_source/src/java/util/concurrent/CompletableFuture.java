@@ -548,14 +548,14 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
      * postComplete or returns this to caller, depending on mode.
      */
     final CompletableFuture<T> postFire(CompletableFuture<?> a, int mode) {
-        if (a != null && a.stack != null) {
+        if (a != null && a.stack != null) { // 处理 src CompletableFuture
             if (mode < 0 || a.result == null)
                 a.cleanStack();
             else
                 a.postComplete();
         }
-        if (result != null && stack != null) {
-            if (mode < 0)
+        if (result != null && stack != null) { // 结果出来了，则处理当前任务栈
+            if (mode < 0) // 嵌套模式直接返回 this
                 return this;
             else
                 postComplete();
@@ -1045,13 +1045,13 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
     /** Post-processing after successful BiCompletion tryFire. */
     final CompletableFuture<T> postFire(CompletableFuture<?> a,
                                         CompletableFuture<?> b, int mode) {
-        if (b != null && b.stack != null) { // clean second source
-            if (mode < 0 || b.result == null)
+        if (b != null && b.stack != null) { // clean second source 先处理第二个 CompletableFuture,之所以是第二个是因为这个 postFire 表示的是 BiCompletion tryFire 后需要的处理，second CompletableFuture 只有 BiCompletion 才有
+            if (mode < 0 || b.result == null) // 嵌套模式且结果没有出来，直接清理
                 b.cleanStack();
             else
                 b.postComplete();
         }
-        return postFire(a, mode);
+        return postFire(a, mode); // UniCompletion tryFire 成功后处理
     }
 
     @SuppressWarnings("serial")
@@ -1318,12 +1318,12 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
     /** Pushes completion to this and b unless either done. */
     final void orpush(CompletableFuture<?> b, BiCompletion<?,?,?> c) {
         if (c != null) {
-            while ((b == null || b.result == null) && result == null) {
-                if (tryPushStack(c)) {
+            while ((b == null || b.result == null) && result == null) { // 都没有结果
+                if (tryPushStack(c)) { // c 入栈
                     if (b != null && b != this && b.result == null) {
-                        Completion q = new CoCompletion(c);
+                        Completion q = new CoCompletion(c); // 封装 CoCompletion
                         while (result == null && b.result == null &&
-                               !b.tryPushStack(q))
+                               !b.tryPushStack(q)) // q 入到 b 的栈
                             lazySetNext(q, null); // clear on failure
                     }
                     break;
@@ -1347,7 +1347,7 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
             CompletableFuture<T> a;
             CompletableFuture<U> b;
             if ((d = dep) == null || // 没有 dep，则没有相应的依赖行为，已经执行过的 dep 会是 null
-                !d.orApply(a = src, b = snd, fn, mode > 0 ? null : this)) //执行 orApply 返回 false,则返回 null。最后一个参数仅当 mode 是 ASYNC（只有它大于1）时会是 this
+                !d.orApply(a = src, b = snd, fn, mode > 0 ? null : this)) //执行 orApply 返回 false 则返回 null。最后一个参数仅当 mode 是 ASYNC（只有它大于1）时会是 this
                 return null;
             dep = null; src = null; snd = null; fn = null;
             return d.postFire(a, b, mode);
@@ -1360,14 +1360,14 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
                                           OrApply<R,S,T> c) {
         Object r; Throwable x;
         if (a == null || b == null ||
-            ((r = a.result) == null && (r = b.result) == null) || f == null)
+            ((r = a.result) == null && (r = b.result) == null) /*r先取a的结果，为null时再取b的结果*/ || f == null)
             return false;// 首先检测两个源 action，若 a 和 b 均未完成，则说明依赖 dep 不可被执行，返回false。
         tryComplete: if (result == null) {
             try {
-                if (c != null && !c.claim()) // C != null 表明是异步模式
+                if (c != null && !c.claim()) // C != null 表明是异步模式 只有是异步模式才会执行后面的 claim,如果 executor 不为 null,则直接异步执行并返回 false
                     return false;
-                if (r instanceof AltResult) {
-                    if ((x = ((AltResult)r).ex) != null) { // 出现异常
+                if (r instanceof AltResult) { // 一般异常时才会使用 AltResult 包装,或者 NIL(null)
+                    if ((x = ((AltResult)r).ex) != null) { // 非 NIL,出现异常
                         completeThrowable(x, r); // 调用异常方法
                         break tryComplete; // 直接退出外层 if 语句，返回 true
                     }
@@ -1388,11 +1388,11 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
         CompletableFuture<U> b;
         if (f == null || (b = o.toCompletableFuture()) == null) // 初步验参
             throw new NullPointerException();
-        CompletableFuture<V> d = new CompletableFuture<V>();
-        if (e != null || !d.orApply(this, b, f, null)) {
+        CompletableFuture<V> d = new CompletableFuture<V>(); // new 一个新的 CompletableFuture 作为 dep 直接返回
+        if (e != null || !d.orApply(this, b, f, null)) { // orApply 返回 false
             OrApply<T,U,V> c = new OrApply<T,U,V>(e, d, this, b, f);
             orpush(b, c);
-            c.tryFire(SYNC);
+            c.tryFire(SYNC); // 同步调用一次 tryFire
         }
         return d;
     }
