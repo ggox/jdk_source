@@ -2,7 +2,9 @@ package test;
 
 import javax.xml.transform.SourceLocator;
 import java.io.IOException;
+import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author: xuhui
@@ -11,19 +13,20 @@ import java.util.concurrent.CompletableFuture;
  */
 public class CompletableFutureDemo {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
-            try {
-                System.in.read();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return "123";
+            Scanner scanner = new Scanner(System.in);
+            String s = scanner.nextLine();
+            System.out.println("supply:" + Thread.currentThread().getId());
+            return s;
         });
-        future.whenCompleteAsync((s, e) -> {
+        System.out.println(Thread.currentThread().getId());
+        TimeUnit.SECONDS.sleep(3);
+        future.whenComplete((s, e) -> {
+            System.out.println("whenComplete:" + Thread.currentThread().getId());
             System.out.println(s);
         });
-        System.in.read();
+        TimeUnit.HOURS.sleep(1);
     }
 
 }

@@ -439,8 +439,8 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
         /** Returns true if possibly still triggerable. Used by cleanStack. */
         abstract boolean isLive();
 
-        public final void run()                { tryFire(ASYNC); }
-        public final boolean exec()            { tryFire(ASYNC); return true; }
+        public final void run()                { tryFire(ASYNC); } // 异步执行时使用 ASYNC 模式
+        public final boolean exec()            { tryFire(ASYNC); return true; } // 异步执行时使用 ASYNC 模式
         public final Void getRawResult()       { return null; }
         public final void setRawResult(Void v) {}
     }
@@ -733,7 +733,7 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
         final CompletableFuture<T> tryFire(int mode) {
             CompletableFuture<T> d; CompletableFuture<T> a;
             if ((d = dep) == null ||
-                !d.uniWhenComplete(a = src, fn, mode > 0 ? null : this))
+                !d.uniWhenComplete(a = src, fn, mode > 0 ? null : this)) // 异步时会传 null 其余都是 this
                 return null;
             dep = null; src = null; fn = null;
             return d.postFire(a, mode);
@@ -744,11 +744,11 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
                                   BiConsumer<? super T,? super Throwable> f,
                                   UniWhenComplete<T> c) {
         Object r; T t; Throwable x = null;
-        if (a == null || (r = a.result) == null || f == null)
+        if (a == null || (r = a.result) == null || f == null) // 前一个阶段（src）的 CompletableFuture 还没有执行完成
             return false;
         if (result == null) {
             try {
-                if (c != null && !c.claim())
+                if (c != null && !c.claim()) // 只有异步时 c 为 null,才会执行下面的流程，如果是同步或者嵌套会执行 claim，里面如果 executor 不为 null 也会转成异步
                     return false;
                 if (r instanceof AltResult) {
                     x = ((AltResult)r).ex;
@@ -775,10 +775,10 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
         Executor e, BiConsumer<? super T, ? super Throwable> f) {
         if (f == null) throw new NullPointerException();
         CompletableFuture<T> d = new CompletableFuture<T>();
-        if (e != null || !d.uniWhenComplete(this, f, null)) {
+        if (e != null || !d.uniWhenComplete(this, f, null)) { // e != null 或者以异步的形式执行执行一下 uniWhenComplete，没有结果就入栈，有结果直接返回无需入栈
             UniWhenComplete<T> c = new UniWhenComplete<T>(e, d, this, f);
             push(c);
-            c.tryFire(SYNC);
+            c.tryFire(SYNC); // 同步的形式触发
         }
         return d;
     }
@@ -1347,7 +1347,7 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
             CompletableFuture<T> a;
             CompletableFuture<U> b;
             if ((d = dep) == null || // 没有 dep，则没有相应的依赖行为，已经执行过的 dep 会是 null
-                !d.orApply(a = src, b = snd, fn, mode > 0 ? null : this)) //执行 orApply 返回 false 则返回 null。最后一个参数仅当 mode 是 ASYNC（只有它大于1）时会是 this
+                !d.orApply(a = src, b = snd, fn, mode > 0 ? null : this)) //执行 orApply 返回 false 则返回 null。最后一个参数仅当 mode 是 ASYNC（只有它大于1）时会是 null
                 return null;
             dep = null; src = null; snd = null; fn = null;
             return d.postFire(a, b, mode);
@@ -1364,7 +1364,7 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
             return false;// 首先检测两个源 action，若 a 和 b 均未完成，则说明依赖 dep 不可被执行，返回false。
         tryComplete: if (result == null) {
             try {
-                if (c != null && !c.claim()) // C != null 表明是异步模式 只有是异步模式才会执行后面的 claim,如果 executor 不为 null,则直接异步执行并返回 false
+                if (c != null && !c.claim()) // C != null 表明是非异步模式 只有异步模式是 null 才会执行下面的流程，非异步模式会执行 claim,里面如果 executor 不为 null 会转为异步模式
                     return false;
                 if (r instanceof AltResult) { // 一般异常时才会使用 AltResult 包装,或者 NIL(null)
                     if ((x = ((AltResult)r).ex) != null) { // 非 NIL,出现异常
