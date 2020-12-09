@@ -1,6 +1,5 @@
 package test;
 
-import javax.xml.transform.SourceLocator;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
@@ -18,14 +17,22 @@ public class CompletableFutureDemo {
             Scanner scanner = new Scanner(System.in);
             String s = scanner.nextLine();
             System.out.println("supply:" + Thread.currentThread().getId());
-            return s;
+            throw new RuntimeException("参数不合法");
+            // return s;
         });
         System.out.println(Thread.currentThread().getId());
-        TimeUnit.SECONDS.sleep(3);
-        future.whenComplete((s, e) -> {
-            System.out.println("whenComplete:" + Thread.currentThread().getId());
-            System.out.println(s);
+
+        future.acceptEither(CompletableFuture.supplyAsync(() -> {
+            try {
+                TimeUnit.SECONDS.sleep(3);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return "456";
+        }), s -> {
+            System.out.println("result:" + s);
         });
+
         TimeUnit.HOURS.sleep(1);
     }
 
