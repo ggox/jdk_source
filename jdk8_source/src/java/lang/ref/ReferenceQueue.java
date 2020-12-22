@@ -61,18 +61,18 @@ public class ReferenceQueue<T> {
             // Check that since getting the lock this reference hasn't already been
             // enqueued (and even then removed)
             ReferenceQueue<?> queue = r.queue;
-            if ((queue == NULL) || (queue == ENQUEUED)) {
+            if ((queue == NULL) || (queue == ENQUEUED)) { // 判断队列是否为空或者该引用是否已经入队
                 return false;
             }
             assert queue == this;
-            r.queue = ENQUEUED;
-            r.next = (head == null) ? r : head;
+            r.queue = ENQUEUED; // 标记已入队
+            r.next = (head == null) ? r : head; // 加入链表，细节：链表最后一个元素的next指向自己
             head = r;
             queueLength++;
-            if (r instanceof FinalReference) {
-                sun.misc.VM.addFinalRefCount(1);
+            if (r instanceof FinalReference) { // 如果是FinalReference
+                sun.misc.VM.addFinalRefCount(1); // finalRefCount +1
             }
-            lock.notifyAll();
+            lock.notifyAll(); // 通知所有阻塞线程
             return true;
         }
     }
@@ -82,9 +82,9 @@ public class ReferenceQueue<T> {
         if (r != null) {
             @SuppressWarnings("unchecked")
             Reference<? extends T> rn = r.next;
-            head = (rn == r) ? null : rn;
-            r.queue = NULL;
-            r.next = r;
+            head = (rn == r) ? null : rn; // next指向自己表示最后一个元素，弹出后head需要置为null
+            r.queue = NULL; // 弹出后r.queue置为null
+            r.next = r; // 切断引用
             queueLength--;
             if (r instanceof FinalReference) {
                 sun.misc.VM.addFinalRefCount(-1);
@@ -141,7 +141,7 @@ public class ReferenceQueue<T> {
             if (r != null) return r;
             long start = (timeout == 0) ? 0 : System.nanoTime();
             for (;;) {
-                lock.wait(timeout);
+                lock.wait(timeout); // 弹出失败阻塞等待
                 r = reallyPoll();
                 if (r != null) return r;
                 if (timeout != 0) {

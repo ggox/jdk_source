@@ -145,8 +145,8 @@ class Thread implements Runnable {
         registerNatives();
     }
 
-    private volatile String name;
-    private int            priority;
+    private volatile String name; // 名称
+    private int            priority; // 优先级
     private Thread         threadQ;
     private long           eetop;
 
@@ -154,22 +154,22 @@ class Thread implements Runnable {
     private boolean     single_step;
 
     /* Whether or not the thread is a daemon thread. */
-    private boolean     daemon = false;
+    private boolean     daemon = false; // 是否守护线程
 
     /* JVM state */
     private boolean     stillborn = false;
 
     /* What will be run. */
-    private Runnable target;
+    private Runnable target; // 目标任务
 
     /* The group of this thread */
-    private ThreadGroup group;
+    private ThreadGroup group; // 线程组
 
     /* The context ClassLoader for this thread */
-    private ClassLoader contextClassLoader;
+    private ClassLoader contextClassLoader; // 线程上下文ClassLoader
 
     /* The inherited AccessControlContext of this thread */
-    private AccessControlContext inheritedAccessControlContext;
+    private AccessControlContext inheritedAccessControlContext; // 继承的访问控制上下文
 
     /* For autonumbering anonymous threads. */
     private static int threadInitNumber;
@@ -179,13 +179,13 @@ class Thread implements Runnable {
 
     /* ThreadLocal values pertaining to this thread. This map is maintained
      * by the ThreadLocal class. */
-    ThreadLocal.ThreadLocalMap threadLocals = null;
+    ThreadLocal.ThreadLocalMap threadLocals = null; // threadLocalMap,ThreadLocal原理
 
     /*
      * InheritableThreadLocal values pertaining to this thread. This map is
      * maintained by the InheritableThreadLocal class.
      */
-    ThreadLocal.ThreadLocalMap inheritableThreadLocals = null;
+    ThreadLocal.ThreadLocalMap inheritableThreadLocals = null; // 继承的threadLocalMap,new Thread() 时赋值,所以使用线程池时有点问题
 
     /*
      * The requested stack size for this thread, or 0 if the creator did

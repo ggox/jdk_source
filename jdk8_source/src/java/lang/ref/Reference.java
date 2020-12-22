@@ -101,8 +101,8 @@ public abstract class Reference<T> {
     @SuppressWarnings("rawtypes")
     volatile Reference next;
 
-    /* When active:   next element in a discovered reference list maintained by GC (or this if last)
-     *     pending:   next element in the pending list (or null if last)
+    /* When active:   next element in a discovered reference list maintained by GC (or this if last) discovered reference的下一个元素是由GC操纵的(如果是最后一个了则为this )；
+     *     pending:   next element in the pending list (or null if last) 当前节点状态是pending时，表示下一个待处理列表的节点，如果是最后一个则为null
      *   otherwise:   NULL
      */
     transient private Reference<T> discovered;  /* used by VM */
@@ -122,11 +122,11 @@ public abstract class Reference<T> {
      * them.  This list is protected by the above lock object. The
      * list uses the discovered field to link its elements.
      */
-    private static Reference<Object> pending = null;
+    private static Reference<Object> pending = null; // 待处理列表
 
     /* High-priority thread to enqueue pending References
      */
-    private static class ReferenceHandler extends Thread {
+    private static class ReferenceHandler extends Thread { // 处理线程，jvm启动时默认线程之一
 
         private static void ensureClassInitialized(Class<?> clazz) {
             try {
@@ -139,7 +139,7 @@ public abstract class Reference<T> {
         static {
             // pre-load and initialize InterruptedException and Cleaner classes
             // so that we don't get into trouble later in the run loop if there's
-            // memory shortage while loading/initializing them lazily.
+            // memory shortage while loading/initializing them lazily. 提前加载class，防止懒加载时遇到内存吃紧的问题
             ensureClassInitialized(InterruptedException.class);
             ensureClassInitialized(Cleaner.class);
         }
@@ -150,7 +150,7 @@ public abstract class Reference<T> {
 
         public void run() {
             while (true) {
-                tryHandlePending(true);
+                tryHandlePending(true); // 循环调用 tryHandlePending
             }
         }
     }
@@ -176,18 +176,18 @@ public abstract class Reference<T> {
         Cleaner c;
         try {
             synchronized (lock) {
-                if (pending != null) {
+                if (pending != null) { // 处理pending列表
                     r = pending;
                     // 'instanceof' might throw OutOfMemoryError sometimes
                     // so do this before un-linking 'r' from the 'pending' chain...
                     c = r instanceof Cleaner ? (Cleaner) r : null;
                     // unlink 'r' from 'pending' chain
-                    pending = r.discovered;
+                    pending = r.discovered; // 取下一个pending元素，即为discovered
                     r.discovered = null;
                 } else {
                     // The waiting on the lock may cause an OutOfMemoryError
                     // because it may try to allocate exception objects.
-                    if (waitForNotify) {
+                    if (waitForNotify) { // 是否需要阻塞等待
                         lock.wait();
                     }
                     // retry if waited
@@ -209,12 +209,12 @@ public abstract class Reference<T> {
 
         // Fast path for cleaners
         if (c != null) {
-            c.clean();
+            c.clean(); // 调用clean方法，DirectByteBuffer申请的堆外内存回收时就是通过关联的cleaner的clean方法回收的
             return true;
         }
 
         ReferenceQueue<? super Object> q = r.queue;
-        if (q != ReferenceQueue.NULL) q.enqueue(r);
+        if (q != ReferenceQueue.NULL) q.enqueue(r); // 入队
         return true;
     }
 

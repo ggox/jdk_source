@@ -412,9 +412,9 @@ public abstract class CountedCompleter<T> extends ForkJoinTask<T> {
     private static final long serialVersionUID = 5232453752276485070L;
 
     /** This task's completer, or null if none */
-    final CountedCompleter<?> completer;
+    final CountedCompleter<?> completer; // 通过completer字段组成一个类似树（倒着的树，子节点能访问父节点，父节点不能访问子节点）的结构
     /** The number of pending tasks until completion */
-    volatile int pending;
+    volatile int pending; // 待处理的任务数量
 
     /**
      * Creates a new CountedCompleter with the given completer
@@ -464,7 +464,7 @@ public abstract class CountedCompleter<T> extends ForkJoinTask<T> {
      * @param caller the task invoking this method (which may
      * be this task itself)
      */
-    public void onCompletion(CountedCompleter<?> caller) {
+    public void onCompletion(CountedCompleter<?> caller) { // 完成时回调，扩展点
     }
 
     /**
@@ -485,7 +485,7 @@ public abstract class CountedCompleter<T> extends ForkJoinTask<T> {
      * @return {@code true} if this exception should be propagated to this
      * task's completer, if one exists
      */
-    public boolean onExceptionalCompletion(Throwable ex, CountedCompleter<?> caller) {
+    public boolean onExceptionalCompletion(Throwable ex, CountedCompleter<?> caller) { // 异常完成回调，扩展点
         return true;
     }
 
@@ -559,7 +559,7 @@ public abstract class CountedCompleter<T> extends ForkJoinTask<T> {
      */
     public final CountedCompleter<?> getRoot() {
         CountedCompleter<?> a = this, p;
-        while ((p = a.completer) != null)
+        while ((p = a.completer) != null) // 找到依赖链条最后的那个CountedCompleter
             a = p;
         return a;
     }
@@ -573,14 +573,14 @@ public abstract class CountedCompleter<T> extends ForkJoinTask<T> {
     public final void tryComplete() {
         CountedCompleter<?> a = this, s = a;
         for (int c;;) {
-            if ((c = a.pending) == 0) {
-                a.onCompletion(s);
-                if ((a = (s = a).completer) == null) {
-                    s.quietlyComplete();
+            if ((c = a.pending) == 0) { // 当前待处理的CountedCompleter为0
+                a.onCompletion(s); // 完成时回调，s不一定等于a
+                if ((a = (s = a).completer) == null) { // 本身的completer也为null，如果不为null,则a赋值为a.completer，s为原来的a,即s.completer = a,然后直接进入下一轮循环
+                    s.quietlyComplete(); // s.completer == null,表明s为root，安静的完成，此时completer上的所有pending都为0
                     return;
                 }
             }
-            else if (U.compareAndSwapInt(a, PENDING, c, c - 1))
+            else if (U.compareAndSwapInt(a, PENDING, c, c - 1)) // 待处理数量-1，该completer的待处理任务完成了一个
                 return;
         }
     }
@@ -594,7 +594,7 @@ public abstract class CountedCompleter<T> extends ForkJoinTask<T> {
      * useful in cases where {@code onCompletion} should not, or need
      * not, be invoked for each completer in a computation.
      */
-    public final void propagateCompletion() {
+    public final void propagateCompletion() { // 传递完成状态，与tryComplete不同的是不会调用onCompletion方法
         CountedCompleter<?> a = this, s = a;
         for (int c;;) {
             if ((c = a.pending) == 0) {
@@ -633,7 +633,7 @@ public abstract class CountedCompleter<T> extends ForkJoinTask<T> {
         onCompletion(this);
         quietlyComplete();
         if ((p = completer) != null)
-            p.tryComplete();
+            p.tryComplete(); // 自己不改变pending，调用completer的tryComplete
     }
 
     /**
@@ -716,11 +716,11 @@ public abstract class CountedCompleter<T> extends ForkJoinTask<T> {
     /**
      * Supports ForkJoinTask exception propagation.
      */
-    void internalPropagateException(Throwable ex) {
+    void internalPropagateException(Throwable ex) { // 内部传递异常
         CountedCompleter<?> a = this, s = a;
         while (a.onExceptionalCompletion(ex, s) &&
-               (a = (s = a).completer) != null && a.status >= 0 &&
-               a.recordExceptionalCompletion(ex) == EXCEPTIONAL)
+               (a = (s = a).completer) != null && a.status >= 0 && // s.completer不为null并且没完成
+               a.recordExceptionalCompletion(ex) == EXCEPTIONAL) // s.completer记录异常，如果记录成功，继续循环
             ;
     }
 
@@ -729,7 +729,7 @@ public abstract class CountedCompleter<T> extends ForkJoinTask<T> {
      */
     protected final boolean exec() {
         compute();
-        return false;
+        return false; // 这里返回的false,如果返回true，就直接进入设置完成状态流程了
     }
 
     /**
