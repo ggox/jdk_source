@@ -802,7 +802,7 @@ public class ForkJoinPool extends AbstractExecutorService {
         int stackPred;             // pool stack (ctl) predecessor
         int nsteals;               // number of steals
         int hint;                  // randomization and stealer index hint
-        int config;                // pool index and mode
+        int config;                // pool index and mode 保护了pool索引和模式
         volatile int qlock;        // 1: locked, < 0: terminate; else 0
         volatile int base;         // index of next slot for poll
         int top;                   // index of next slot for push
@@ -817,21 +817,21 @@ public class ForkJoinPool extends AbstractExecutorService {
             this.pool = pool;
             this.owner = owner;
             // Place indices in the center of array (that is not yet allocated)
-            base = top = INITIAL_QUEUE_CAPACITY >>> 1;
+            base = top = INITIAL_QUEUE_CAPACITY >>> 1; // base和top都是INITIAL_QUEUE_CAPACITY的一半
         }
 
         /**
          * Returns an exportable index (used by ForkJoinWorkerThread).
          */
         final int getPoolIndex() {
-            return (config & 0xffff) >>> 1; // ignore odd/even tag bit
+            return (config & 0xffff) >>> 1; // ignore odd/even tag bit // 只保留config的低16位参与计算
         }
 
         /**
-         * Returns the approximate number of tasks in the queue.
+         * Returns the approximate number of tasks in the queue. 返回近似任务数，不保证精确
          */
         final int queueSize() {
-            int n = base - top;       // non-owner callers must read base first
+            int n = base - top;       // non-owner callers must read base first 非owner需要读取base先，可能和base是volatile的相关
             return (n >= 0) ? 0 : -n; // ignore transient negative
         }
 
@@ -861,13 +861,13 @@ public class ForkJoinPool extends AbstractExecutorService {
             int b = base, s = top, n;
             if ((a = array) != null) {    // ignore if queue removed
                 int m = a.length - 1;     // fenced write for task visibility
-                U.putOrderedObject(a, ((m & s) << ASHIFT) + ABASE, task);
+                U.putOrderedObject(a, ((m & s) << ASHIFT) + ABASE, task); // 通过Unsafe计算地址偏移量的方式在数据的top上面push一个task
                 U.putOrderedInt(this, QTOP, s + 1);
                 if ((n = s - b) <= 1) {
-                    if ((p = pool) != null)
+                    if ((p = pool) != null) // 任务数量小于等于1
                         p.signalWork(p.workQueues, this);
                 }
-                else if (n >= m)
+                else if (n >= m) // 超出数组长度时扩容
                     growArray();
             }
         }
@@ -1237,8 +1237,8 @@ public class ForkJoinPool extends AbstractExecutorService {
                 ABASE = U.arrayBaseOffset(ak);
                 int scale = U.arrayIndexScale(ak);
                 if ((scale & (scale - 1)) != 0)
-                    throw new Error("data type scale not a power of two");
-                ASHIFT = 31 - Integer.numberOfLeadingZeros(scale);
+                    throw new Error("data type scale not a power of two"); // 必须是2的次方
+                ASHIFT = 31 - Integer.numberOfLeadingZeros(scale); // Integer.numberOfLeadingZeros -> 最左边算起0的数量，ASHIFT表示scale占用的位数
             } catch (Exception e) {
                 throw new Error(e);
             }
