@@ -879,22 +879,22 @@ public class ForkJoinPool extends AbstractExecutorService {
          */
         final ForkJoinTask<?>[] growArray() {
             ForkJoinTask<?>[] oldA = array;
-            int size = oldA != null ? oldA.length << 1 : INITIAL_QUEUE_CAPACITY;
+            int size = oldA != null ? oldA.length << 1 : INITIAL_QUEUE_CAPACITY; // 目标size
             if (size > MAXIMUM_QUEUE_CAPACITY)
                 throw new RejectedExecutionException("Queue capacity exceeded");
             int oldMask, t, b;
-            ForkJoinTask<?>[] a = array = new ForkJoinTask<?>[size];
+            ForkJoinTask<?>[] a = array = new ForkJoinTask<?>[size]; // new一个数组
             if (oldA != null && (oldMask = oldA.length - 1) >= 0 &&
-                (t = top) - (b = base) > 0) {
+                (t = top) - (b = base) > 0) { // 存在任务
                 int mask = size - 1;
                 do { // emulate poll from old array, push to new array
                     ForkJoinTask<?> x;
-                    int oldj = ((b & oldMask) << ASHIFT) + ABASE;
-                    int j    = ((b &    mask) << ASHIFT) + ABASE;
+                    int oldj = ((b & oldMask) << ASHIFT) + ABASE; // 旧地址
+                    int j    = ((b &    mask) << ASHIFT) + ABASE; // 新地址
                     x = (ForkJoinTask<?>)U.getObjectVolatile(oldA, oldj);
                     if (x != null &&
-                        U.compareAndSwapObject(oldA, oldj, x, null))
-                        U.putObjectVolatile(a, j, x);
+                        U.compareAndSwapObject(oldA, oldj, x, null)) // cas旧元素置为null
+                        U.putObjectVolatile(a, j, x); // 移动到新元素
                 } while (++b != t);
             }
             return a;
@@ -902,17 +902,17 @@ public class ForkJoinPool extends AbstractExecutorService {
 
         /**
          * Takes next task, if one exists, in LIFO order.  Call only
-         * by owner in unshared queues.
+         * by owner in unshared queues. 非共享队列时只允许owner调用
          */
         final ForkJoinTask<?> pop() {
             ForkJoinTask<?>[] a; ForkJoinTask<?> t; int m;
             if ((a = array) != null && (m = a.length - 1) >= 0) {
-                for (int s; (s = top - 1) - base >= 0;) {
+                for (int s; (s = top - 1) - base >= 0;) { // top-1是最新push进去的任务在数组中的位置
                     long j = ((m & s) << ASHIFT) + ABASE;
-                    if ((t = (ForkJoinTask<?>)U.getObject(a, j)) == null)
+                    if ((t = (ForkJoinTask<?>)U.getObject(a, j)) == null) // 如果为null可能已经被别的线程窃取了
                         break;
-                    if (U.compareAndSwapObject(a, j, t, null)) {
-                        U.putOrderedInt(this, QTOP, s);
+                    if (U.compareAndSwapObject(a, j, t, null)) { // cas弹出任务
+                        U.putOrderedInt(this, QTOP, s); // top-1
                         return t;
                     }
                 }
@@ -929,8 +929,8 @@ public class ForkJoinPool extends AbstractExecutorService {
             ForkJoinTask<?> t; ForkJoinTask<?>[] a;
             if ((a = array) != null) {
                 int j = (((a.length - 1) & b) << ASHIFT) + ABASE;
-                if ((t = (ForkJoinTask<?>)U.getObjectVolatile(a, j)) != null &&
-                    base == b && U.compareAndSwapObject(a, j, t, null)) {
+                if ((t = (ForkJoinTask<?>)U.getObjectVolatile(a, j)) != null && // b位置的任务不为null
+                    base == b && U.compareAndSwapObject(a, j, t, null)) { // b==base并且cas弹出成功，b如果不是代表队首（FIFO）,则返回null
                     base = b + 1;
                     return t;
                 }
@@ -963,14 +963,14 @@ public class ForkJoinPool extends AbstractExecutorService {
         /**
          * Takes next task, if one exists, in order specified by mode.
          */
-        final ForkJoinTask<?> nextLocalTask() {
+        final ForkJoinTask<?> nextLocalTask() { // 通过配置config中定义的顺序判断下一个任务是pop还是poll
             return (config & FIFO_QUEUE) == 0 ? pop() : poll();
         }
 
         /**
          * Returns next task, if one exists, in order specified by mode.
          */
-        final ForkJoinTask<?> peek() {
+        final ForkJoinTask<?> peek() { // 根据队列模式peek一个任务（不出队）
             ForkJoinTask<?>[] a = array; int m;
             if (a == null || (m = a.length - 1) < 0)
                 return null;
@@ -987,7 +987,7 @@ public class ForkJoinPool extends AbstractExecutorService {
             ForkJoinTask<?>[] a; int s;
             if ((a = array) != null && (s = top) != base &&
                 U.compareAndSwapObject
-                (a, (((a.length - 1) & --s) << ASHIFT) + ABASE, t, null)) {
+                (a, (((a.length - 1) & --s) << ASHIFT) + ABASE, t, null)) { // t位于头部的时候弹出，cas保证
                 U.putOrderedInt(this, QTOP, s);
                 return true;
             }
@@ -1001,14 +1001,14 @@ public class ForkJoinPool extends AbstractExecutorService {
             ForkJoinTask<?> t;
             if ((t = currentJoin) != null) {
                 currentJoin = null;
-                ForkJoinTask.cancelIgnoringExceptions(t);
+                ForkJoinTask.cancelIgnoringExceptions(t); // 先cancel currentJoin任务
             }
             if ((t = currentSteal) != null) {
                 currentSteal = null;
-                ForkJoinTask.cancelIgnoringExceptions(t);
+                ForkJoinTask.cancelIgnoringExceptions(t); // 再cancel currentSteal任务
             }
             while ((t = poll()) != null)
-                ForkJoinTask.cancelIgnoringExceptions(t);
+                ForkJoinTask.cancelIgnoringExceptions(t); // 再一次cancel队列里的任务
         }
 
         // Specialized execution methods
@@ -1017,12 +1017,12 @@ public class ForkJoinPool extends AbstractExecutorService {
          * Polls and runs tasks until empty.
          */
         final void pollAndExecAll() {
-            for (ForkJoinTask<?> t; (t = poll()) != null;)
+            for (ForkJoinTask<?> t; (t = poll()) != null;) // 通过poll执行全部任务
                 t.doExec();
         }
 
         /**
-         * Removes and executes all local tasks. If LIFO, invokes
+         * Removes and executes all local tasks. If LIFO, invokes 这里注释应该有点问题，应该是FIFO的话调用pollAndExecAll
          * pollAndExecAll. Otherwise implements a specialized pop loop
          * to exec until empty.
          */
@@ -1031,7 +1031,7 @@ public class ForkJoinPool extends AbstractExecutorService {
             ForkJoinTask<?>[] a = array;
             if (b - (s = top - 1) <= 0 && a != null &&
                 (m = a.length - 1) >= 0) {
-                if ((config & FIFO_QUEUE) == 0) {
+                if ((config & FIFO_QUEUE) == 0) { // 如果是LIFO,通过类似pop的代码弹出任务执行
                     for (ForkJoinTask<?> t;;) {
                         if ((t = (ForkJoinTask<?>)U.getAndSetObject
                              (a, ((m & s) << ASHIFT) + ABASE, null)) == null)
@@ -1043,26 +1043,26 @@ public class ForkJoinPool extends AbstractExecutorService {
                     }
                 }
                 else
-                    pollAndExecAll();
+                    pollAndExecAll(); // 如果是FIFO
             }
         }
 
         /**
-         * Executes the given task and any remaining local tasks.
+         * Executes the given task and any remaining local tasks. 执行任务的入口方法
          */
         final void runTask(ForkJoinTask<?> task) {
             if (task != null) {
-                scanState &= ~SCANNING; // mark as busy
-                (currentSteal = task).doExec();
-                U.putOrderedObject(this, QCURRENTSTEAL, null); // release for GC
-                execLocalTasks();
+                scanState &= ~SCANNING; // mark as busy 末尾0表示busy
+                (currentSteal = task).doExec(); // 赋值 currentSteal
+                U.putOrderedObject(this, QCURRENTSTEAL, null); // release for GC 执行完了释放
+                execLocalTasks(); // 执行本地任务
                 ForkJoinWorkerThread thread = owner;
-                if (++nsteals < 0)      // collect on overflow
+                if (++nsteals < 0)      // collect on overflow int溢出了，将结果加到pool的stealCounter上
                     transferStealCount(pool);
-                scanState |= SCANNING;
+                scanState |= SCANNING; // 将执行标记解除
                 if (thread != null)
-                    thread.afterTopLevelExec();
-            }
+                    thread.afterTopLevelExec(); // 内部钩子方法，一般用于InnocuousForkJoinWorkerThread
+            } // 方法结束并没有清理task的动作
         }
 
         /**
@@ -1092,7 +1092,7 @@ public class ForkJoinPool extends AbstractExecutorService {
                         long j = ((--s & m) << ASHIFT) + ABASE;
                         if ((t = (ForkJoinTask<?>)U.getObject(a, j)) == null)
                             return s + 1 == top;     // shorter than expected
-                        else if (t == task) {
+                        else if (t == task) { // 如果相同
                             boolean removed = false;
                             if (s + 1 == top) {      // pop
                                 if (U.compareAndSwapObject(a, j, task, null)) {
@@ -1102,12 +1102,12 @@ public class ForkJoinPool extends AbstractExecutorService {
                             }
                             else if (base == b)      // replace with proxy
                                 removed = U.compareAndSwapObject(
-                                    a, j, task, new EmptyTask());
+                                    a, j, task, new EmptyTask()); // 替换成EmptyTask
                             if (removed)
                                 task.doExec();
                             break;
                         }
-                        else if (t.status < 0 && s + 1 == top) {
+                        else if (t.status < 0 && s + 1 == top) { // 清理顶部已完成任务
                             if (U.compareAndSwapObject(a, j, t, null))
                                 U.putOrderedInt(this, QTOP, s);
                             break;                  // was cancelled
@@ -1621,7 +1621,7 @@ public class ForkJoinPool extends AbstractExecutorService {
     // Signalling
 
     /**
-     * Tries to create or activate a worker if too few are active.
+     * Tries to create or activate a worker if too few are active. 活动任务太少，尝试创建或者唤醒worker
      *
      * @param ws the worker array to use to find signallees
      * @param q a WorkQueue --if non-null, don't retry if now empty
