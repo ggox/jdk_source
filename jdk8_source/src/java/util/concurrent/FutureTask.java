@@ -103,7 +103,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
     /** The result to return or exception to throw from get() */
     private Object outcome; // non-volatile, protected by state reads/writes
     /** The thread running the callable; CASed during run() */
-    private volatile Thread runner;
+    private volatile Thread runner; // 执行Callable的线程，在run方法中通过cas设置
     /** Treiber stack of waiting threads */
     private volatile WaitNode waiters;
 
@@ -114,7 +114,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
      */
     @SuppressWarnings("unchecked")
     private V report(int s) throws ExecutionException {
-        Object x = outcome;
+        Object x = outcome; // 虽然outcome没有使用volatile，但是因为总是先读取state，而outcome总是在state被赋值前set
         if (s == NORMAL)
             return (V)x;
         if (s >= CANCELLED)
@@ -149,7 +149,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * @throws NullPointerException if the runnable is null
      */
     public FutureTask(Runnable runnable, V result) {
-        this.callable = Executors.callable(runnable, result);
+        this.callable = Executors.callable(runnable, result); // 将Runnable适配成Callable
         this.state = NEW;       // ensure visibility of callable
     }
 
@@ -187,7 +187,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
      */
     public V get() throws InterruptedException, ExecutionException {
         int s = state;
-        if (s <= COMPLETING)
+        if (s <= COMPLETING) // 还没有结束，等待
             s = awaitDone(false, 0L);
         return report(s);
     }
@@ -227,9 +227,9 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * @param v the value
      */
     protected void set(V v) {
-        if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
+        if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) { // 并发保证
             outcome = v;
-            UNSAFE.putOrderedInt(this, stateOffset, NORMAL); // final state
+            UNSAFE.putOrderedInt(this, stateOffset, NORMAL); // final state 使用putOrderedInt防止重排序，保证在state的NORMAL状态被看见时一定能看到outcome的状态
             finishCompletion();
         }
     }
@@ -247,7 +247,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
     protected void setException(Throwable t) {
         if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
             outcome = t;
-            UNSAFE.putOrderedInt(this, stateOffset, EXCEPTIONAL); // final state
+            UNSAFE.putOrderedInt(this, stateOffset, EXCEPTIONAL); // final state 这里有个细节问题：outcome没有volatile修饰，它的可见性依赖state状态
             finishCompletion();
         }
     }
@@ -256,10 +256,10 @@ public class FutureTask<V> implements RunnableFuture<V> {
         if (state != NEW ||
             !UNSAFE.compareAndSwapObject(this, runnerOffset,
                                          null, Thread.currentThread()))
-            return;
+            return; // 进入到这里表明正在执行中，直接return
         try {
             Callable<V> c = callable;
-            if (c != null && state == NEW) {
+            if (c != null && state == NEW) { // 在判断一遍执行条件：任务不为空，状态为NEW
                 V result;
                 boolean ran;
                 try {
@@ -268,7 +268,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
                 } catch (Throwable ex) {
                     result = null;
                     ran = false;
-                    setException(ex);
+                    setException(ex); // 设置异常
                 }
                 if (ran)
                     set(result);
