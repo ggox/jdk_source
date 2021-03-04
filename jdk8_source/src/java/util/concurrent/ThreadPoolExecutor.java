@@ -593,7 +593,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * runWorker).
      */
     private final class Worker
-        extends AbstractQueuedSynchronizer // 继承了AQS
+        extends AbstractQueuedSynchronizer // 继承了AQS，之所以不使用ReentrantLock,是为了不可重入的特性
         implements Runnable
     {
         /**
@@ -906,7 +906,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 
             // Check if queue empty only if necessary.
             if (rs >= SHUTDOWN && // 已经被shutdown
-                ! (rs == SHUTDOWN &&  // 并且（前提是 >= SHUTDOWN） 不同时处于以下三种情况：处于shutdown状态，firstTask为null,workQueue满了
+                ! (rs == SHUTDOWN &&  // 并且（前提是 >= SHUTDOWN） 不同时处于以下三种情况：处于shutdown状态，firstTask为null,workQueue满了 -> 这里指的是不需要帮助处理任务的情况
                    firstTask == null &&
                    ! workQueue.isEmpty()))
                 return false;
@@ -1061,17 +1061,18 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             // Are workers subject to culling?
             boolean timed = allowCoreThreadTimeOut || wc > corePoolSize;
 
+            // （（超过最大线程数）或者 （允许核心线程超时且已经超时）） 并且当前线程数大于1 或者任务为空
             if ((wc > maximumPoolSize || (timed && timedOut))
                 && (wc > 1 || workQueue.isEmpty())) {
-                if (compareAndDecrementWorkerCount(c))
+                if (compareAndDecrementWorkerCount(c)) // 尝试减少线程数成功返回null
                     return null;
                 continue;
             }
 
             try {
                 Runnable r = timed ?
-                    workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS) :
-                    workQueue.take();
+                    workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS) : // 非核心线程等待keepAliveTime
+                    workQueue.take(); // 核心线程阻塞
                 if (r != null)
                     return r;
                 timedOut = true;
