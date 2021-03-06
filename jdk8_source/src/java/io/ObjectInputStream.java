@@ -1566,7 +1566,7 @@ public class ObjectInputStream
                 case TC_ARRAY:
                     return checkResolve(readArray(unshared));
 
-                case TC_ENUM:
+                case TC_ENUM: // 读取枚举字段
                     return checkResolve(readEnum(unshared));
 
                 case TC_OBJECT:
@@ -2001,12 +2001,13 @@ public class ObjectInputStream
         if (resolveEx != null) {
             handles.markException(enumHandle, resolveEx);
         }
-
+        // 读取枚举的name()字符串
         String name = readString(false);
         Enum<?> result = null;
         Class<?> cl = desc.forClass();
         if (cl != null) {
             try {
+                // 通过Enum.valueOf 方法获取序列化前的枚举对象，是同一个对象，所以基于枚举的单例模式是可以解决jdk序列化反序列化的问题的
                 @SuppressWarnings("unchecked")
                 Enum<?> en = Enum.valueOf((Class)cl, name);
                 result = en;
