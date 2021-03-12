@@ -405,8 +405,8 @@ public class Timer {
                 task.state = TimerTask.SCHEDULED;
             }
 
-            queue.add(task);
-            if (queue.getMin() == task)
+            queue.add(task); // 添加任务进堆
+            if (queue.getMin() == task) // 如果当前堆顶元素是自己，则需要唤醒阻塞，重新计算阻塞时间
                 queue.notify();
         }
     }
@@ -502,7 +502,7 @@ class TimerThread extends Thread {
 
     public void run() {
         try {
-            mainLoop();
+            mainLoop(); // 执行任务主循环
         } finally {
             // Someone killed this Thread, behave as if Timer cancelled
             synchronized(queue) {
@@ -529,7 +529,7 @@ class TimerThread extends Thread {
 
                     // Queue nonempty; look at first evt and do the right thing
                     long currentTime, executionTime;
-                    task = queue.getMin();
+                    task = queue.getMin(); // 获取堆顶元素
                     synchronized(task.lock) {
                         if (task.state == TimerTask.CANCELLED) {
                             queue.removeMin();
@@ -549,7 +549,7 @@ class TimerThread extends Thread {
                         }
                     }
                     if (!taskFired) // Task hasn't yet fired; wait
-                        queue.wait(executionTime - currentTime);
+                        queue.wait(executionTime - currentTime); // 使用object的wait方法实现阻塞的效果
                 }
                 if (taskFired)  // Task fired; run it, holding no locks
                     task.run();
@@ -566,7 +566,7 @@ class TimerThread extends Thread {
  * offers log(n) performance for the add, removeMin and rescheduleMin
  * operations, and constant time performance for the getMin operation.
  */
-class TaskQueue {
+class TaskQueue { // 一个对结构，通过任务的下次执行时间排序
     /**
      * Priority queue represented as a balanced binary heap: the two children
      * of queue[n] are queue[2*n] and queue[2*n+1].  The priority queue is
@@ -598,15 +598,15 @@ class TaskQueue {
         if (size + 1 == queue.length)
             queue = Arrays.copyOf(queue, 2*queue.length);
 
-        queue[++size] = task;
-        fixUp(size);
+        queue[++size] = task; // 添加到堆的尾部
+        fixUp(size); // 堆常规操作，上浮
     }
 
     /**
      * Return the "head task" of the priority queue.  (The head task is an
      * task with the lowest nextExecutionTime.)
      */
-    TimerTask getMin() {
+    TimerTask getMin() { // 获取小顶堆头部
         return queue[1];
     }
 

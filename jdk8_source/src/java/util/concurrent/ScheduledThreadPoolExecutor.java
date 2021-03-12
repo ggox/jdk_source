@@ -286,8 +286,8 @@ public class ScheduledThreadPoolExecutor
          * Overrides FutureTask version so as to reset/requeue if periodic.
          */
         public void run() {
-            boolean periodic = isPeriodic();
-            if (!canRunInCurrentRunState(periodic))
+            boolean periodic = isPeriodic(); // 是不是周期性的
+            if (!canRunInCurrentRunState(periodic)) // 当前是否可以执行
                 cancel(false);
             else if (!periodic)
                 ScheduledFutureTask.super.run();
@@ -325,7 +325,7 @@ public class ScheduledThreadPoolExecutor
         if (isShutdown())
             reject(task);
         else {
-            super.getQueue().add(task);
+            super.getQueue().add(task); // 不管核心线程数设置了什么，都先添加到队列中，通过延时队列实现延时执行的效果
             if (isShutdown() &&
                 !canRunInCurrentRunState(task.isPeriodic()) &&
                 remove(task))
@@ -428,7 +428,7 @@ public class ScheduledThreadPoolExecutor
      */
     public ScheduledThreadPoolExecutor(int corePoolSize) {
         super(corePoolSize, Integer.MAX_VALUE, 0, NANOSECONDS,
-              new DelayedWorkQueue());
+              new DelayedWorkQueue()); // DelayedWorkQueue核心数据接口，延迟队列
     }
 
     /**
@@ -527,7 +527,7 @@ public class ScheduledThreadPoolExecutor
                                        TimeUnit unit) {
         if (command == null || unit == null)
             throw new NullPointerException();
-        RunnableScheduledFuture<?> t = decorateTask(command,
+        RunnableScheduledFuture<?> t = decorateTask(command, // 包装任务
             new ScheduledFutureTask<Void>(command, null,
                                           triggerTime(delay, unit)));
         delayedExecute(t);
@@ -618,8 +618,8 @@ public class ScheduledThreadPoolExecutor
      *         executor has been shut down
      * @throws NullPointerException {@inheritDoc}
      */
-    public void execute(Runnable command) {
-        schedule(command, 0, NANOSECONDS);
+    public void execute(Runnable command) { // 核心执行方法
+        schedule(command, 0, NANOSECONDS); // 委托给schedule方法
     }
 
     // Override AbstractExecutorService methods
@@ -1017,9 +1017,9 @@ public class ScheduledThreadPoolExecutor
                     queue[0] = e;
                     setIndex(e, 0);
                 } else {
-                    siftUp(i, e);
+                    siftUp(i, e); // 堆上浮操作
                 }
-                if (queue[0] == e) {
+                if (queue[0] == e) { // 如果堆顶是自己，则需要调整阻塞的时间，所以进行signal
                     leader = null;
                     available.signal();
                 }
