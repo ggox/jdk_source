@@ -340,11 +340,13 @@ public class ObjectOutputStream
      *          OutputStream.
      */
     public final void writeObject(Object obj) throws IOException {
+        // 扩展钩子，如果子类继承了ObjectOutputStream一般需要实现writeObjectOverride
         if (enableOverride) {
             writeObjectOverride(obj);
             return;
         }
         try {
+            // 核心方法入口
             writeObject0(obj, false);
         } catch (IOException ex) {
             if (depth == 0) {
@@ -1132,6 +1134,7 @@ public class ObjectOutputStream
                 // REMIND: skip this check for strings/arrays?
                 Class<?> repCl;
                 desc = ObjectStreamClass.lookup(cl, true);
+                // 是否含有writeReplace方法，是就直接调用writeReplace，返回一个新的obj，这里会一直循环直到obj不含writeReplace方法或者返回的新的objclass和原class一样
                 if (!desc.hasWriteReplaceMethod() ||
                     (obj = desc.invokeWriteReplace(obj)) == null ||
                     (repCl = obj.getClass()) == cl)
@@ -1140,7 +1143,7 @@ public class ObjectOutputStream
                 }
                 cl = repCl;
             }
-            if (enableReplace) {
+            if (enableReplace) { // 是否允许子类对obj进行替换
                 Object rep = replaceObject(obj);
                 if (rep != obj && rep != null) {
                     cl = rep.getClass();
@@ -1168,13 +1171,14 @@ public class ObjectOutputStream
             }
 
             // remaining cases
-            if (obj instanceof String) {
+            if (obj instanceof String) { // 处理String
                 writeString((String) obj, unshared);
-            } else if (cl.isArray()) {
+            } else if (cl.isArray()) { // 处理数组
                 writeArray(obj, desc, unshared);
-            } else if (obj instanceof Enum) {
+            } else if (obj instanceof Enum) { // 处理枚举
                 writeEnum((Enum<?>) obj, desc, unshared);
             } else if (obj instanceof Serializable) {
+                // 普通可序列化对象的write地方
                 writeOrdinaryObject(obj, desc, unshared);
             } else {
                 if (extendedDebugInfo) {
@@ -1398,10 +1402,12 @@ public class ObjectOutputStream
                            boolean unshared)
         throws IOException
     {
-        bout.writeByte(TC_ENUM);
+        bout.writeByte(TC_ENUM); // 设置枚举标志
         ObjectStreamClass sdesc = desc.getSuperDesc();
+        // 写入class描述信息
         writeClassDesc((sdesc.forClass() == Enum.class) ? desc : sdesc, false);
         handles.assign(unshared ? null : en);
+        // 以字符串的形式写入了枚举的name()
         writeString(en.name(), false);
     }
 
@@ -1422,13 +1428,15 @@ public class ObjectOutputStream
         }
         try {
             desc.checkSerialize();
-
+            // 写入object标记
             bout.writeByte(TC_OBJECT);
+            // 写入类描述信息
             writeClassDesc(desc, false);
             handles.assign(unshared ? null : obj);
+            // 如果实现了Externalizable接口，且不是代理对象，直接走writeExternalData分支，内部就是调用Externalizable.writeExternal方法
             if (desc.isExternalizable() && !desc.isProxy()) {
                 writeExternalData((Externalizable) obj);
-            } else {
+            } else { // 否则走常规分支
                 writeSerialData(obj, desc);
             }
         } finally {
@@ -1452,6 +1460,7 @@ public class ObjectOutputStream
         SerialCallbackContext oldContext = curContext;
         try {
             curContext = null;
+            // 版本兼容
             if (protocol == PROTOCOL_VERSION_1) {
                 obj.writeExternal(this);
             } else {
@@ -1477,6 +1486,7 @@ public class ObjectOutputStream
     private void writeSerialData(Object obj, ObjectStreamClass desc)
         throws IOException
     {
+        // 如果对象包含层次接口（含有父类），这里就会有多个ClassDataSlot，父类在前
         ObjectStreamClass.ClassDataSlot[] slots = desc.getClassDataLayout();
         for (int i = 0; i < slots.length; i++) {
             ObjectStreamClass slotDesc = slots[i].desc;
@@ -1533,6 +1543,7 @@ public class ObjectOutputStream
         desc.getPrimFieldValues(obj, primVals);
         bout.write(primVals, 0, primDataSize, false);
 
+        // 递归写入各个字段的值
         ObjectStreamField[] fields = desc.getFields(false);
         Object[] objVals = new Object[desc.getNumObjFields()];
         int numPrimFields = fields.length - objVals.length;
@@ -2164,10 +2175,10 @@ public class ObjectOutputStream
                 throw new UTFDataFormatException();
             }
             writeShort((int) utflen);
-            if (utflen == (long) s.length()) {
+            if (utflen == (long) s.length()) { // 表示都是单字节字符
                 writeBytes(s);
             } else {
-                writeUTFBody(s);
+                writeUTFBody(s); // 表示存在多字节字符
             }
         }
 
